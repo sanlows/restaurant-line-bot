@@ -27,7 +27,7 @@ SHEET_HEADERS = [
     "note",
 ]
 
-DEFAULT_STATUS = "received"
+DEFAULT_STATUS = "已收藏"
 TAIPEI = ZoneInfo("Asia/Taipei")
 
 

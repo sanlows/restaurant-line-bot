@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import logging
+from json import JSONDecodeError
+
 from fastapi import FastAPI, Header, HTTPException, Request
 
 from config.settings import get_settings
@@ -9,6 +12,8 @@ from services.url_parser import parse_urls
 
 
 app = FastAPI(title="restaurant-line-bot")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("restaurant-line-bot")
 
 
 @app.get("/")
@@ -23,15 +28,31 @@ async def callback(
 ) -> dict[str, str]:
     settings = get_settings()
     body = await request.body()
+    logger.info("callback received body_length=%s", len(body))
 
     if not is_valid_signature(settings.line_channel_secret, body, x_line_signature):
+        logger.warning("signature invalid body_length=%s", len(body))
         raise HTTPException(status_code=400, detail="Invalid LINE signature")
 
-    payload = await request.json()
+    logger.info("signature valid")
+
+    try:
+        payload = await request.json()
+    except JSONDecodeError:
+        logger.exception("callback json parse failure")
+        return {"status": "ok"}
+
     line_service = LineService(settings)
     sheets_service = SheetsService(settings)
+    events = payload.get("events", [])
+    logger.info("number of events=%s", len(events))
 
-    for event in payload.get("events", []):
+    for event in events:
+        event_type = event.get("type", "")
+        source = event.get("source", {})
+        source_type = source.get("type", "")
+        logger.info("event type=%s source type=%s", event_type, source_type)
+
         if event.get("type") != "message":
             continue
         message = event.get("message", {})
@@ -39,13 +60,16 @@ async def callback(
             continue
 
         reply_token = event.get("replyToken", "")
-        parsed_urls = parse_urls(message.get("text", ""))
+        message_text = message.get("text", "")
+        parsed_urls = parse_urls(message_text)
+        logger.info(
+            "message text=%r extracted urls=%s",
+            message_text,
+            [parsed.url for parsed in parsed_urls],
+        )
         if not parsed_urls:
-            if reply_token:
-                line_service.reply_text(reply_token, "請傳送餐廳貼文或地圖網址，我會幫你記錄。")
             continue
 
-        source = event.get("source", {})
         records = [
             UrlRecord(
                 group_id=source.get("groupId", ""),
@@ -56,17 +80,25 @@ async def callback(
             )
             for parsed in parsed_urls
         ]
-        ids = sheets_service.append_records(records)
+        try:
+            ids = sheets_service.append_records(records)
+            logger.info("Google Sheets write success ids=%s", ids)
+        except Exception:
+            logger.exception("Google Sheets write failure")
+            continue
 
         if reply_token:
-            line_service.reply_text(reply_token, _success_message(ids))
+            try:
+                line_service.reply_text(reply_token, _success_message(ids))
+            except Exception:
+                logger.exception("LINE reply failure")
 
     return {"status": "ok"}
 
 
 def _success_message(ids: list[int]) -> str:
     if len(ids) == 1:
-        return f"已收到並記錄 #{ids[0]}"
+        return f"已收藏餐廳連結 #{ids[0]}"
 
     formatted_ids = ", ".join(f"#{record_id}" for record_id in ids)
-    return f"已收到 {len(ids)} 筆並記錄：{formatted_ids}"
+    return f"已收藏 {len(ids)} 筆餐廳連結：{formatted_ids}"
