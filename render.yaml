@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: restaurant-line-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_ADMIN_USER_ID
+        sync: false
+      - key: GOOGLE_SHEET_ID
+        value: 1Slva6CqO2sJ4lyRjkR8U1RlS9oaF_dVbAS312rG9ffo
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
