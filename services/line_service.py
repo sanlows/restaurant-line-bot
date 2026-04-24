@@ -16,6 +16,8 @@ from config.settings import Settings
 
 
 def is_valid_signature(channel_secret: str, body: bytes, signature: str) -> bool:
+    channel_secret = channel_secret.strip()
+    signature = signature.strip()
     if not channel_secret or not signature:
         return False
 
