@@ -5,7 +5,10 @@ def test_parse_list_commands():
     assert parse_command("list") == {"type": "list"}
     assert parse_command("List") == {"type": "list"}
     assert parse_command("LIST") == {"type": "list"}
-    assert parse_command("查 最近") == {"type": "list"}
+
+
+def test_parse_recent_command():
+    assert parse_command("查 最近") == {"type": "recent"}
 
 
 def test_parse_search_commands():

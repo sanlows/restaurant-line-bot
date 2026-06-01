@@ -52,7 +52,7 @@ HEADERS = [
 ]
 
 
-def row(record_id, group_id, name, category="", district="", url="https://example.com"):
+def row(record_id, group_id, name, category="", district="", url="https://example.com", note=""):
     return [
         str(record_id),
         "2026-04-24 12:00:00",
@@ -68,11 +68,25 @@ def row(record_id, group_id, name, category="", district="", url="https://exampl
         district,
         "",
         "",
-        "",
+        note,
         name,
         category,
         "0.4",
     ]
+
+
+def test_get_all_records_filters_group_and_returns_all_newest_first():
+    worksheet = FakeWorksheet(
+        [HEADERS]
+        + [row(index, "group-a", f"餐廳{index}") for index in range(1, 8)]
+        + [row(8, "group-b", "別群餐廳")]
+    )
+    service = FakeSheetsService(worksheet)
+
+    records = service.get_all_records("group-a", "group")
+
+    assert [record["id"] for record in records] == ["7", "6", "5", "4", "3", "2", "1"]
+    assert all(record["group_id"] == "group-a" for record in records)
 
 
 def test_get_recent_records_filters_group_and_limits_to_five():
@@ -86,7 +100,6 @@ def test_get_recent_records_filters_group_and_limits_to_five():
     records = service.get_recent_records("group-a", "group", limit=5)
 
     assert [record["id"] for record in records] == ["7", "6", "5", "4", "3"]
-    assert all(record["group_id"] == "group-a" for record in records)
 
 
 def test_search_records_filters_group_and_keyword():
@@ -101,6 +114,35 @@ def test_search_records_filters_group_and_keyword():
     service = FakeSheetsService(worksheet)
 
     records = service.search_records("板橋", "group-a", "group")
+
+    assert [record["id"] for record in records] == ["1"]
+
+
+def test_search_records_matches_category_aliases():
+    worksheet = FakeWorksheet(
+        [
+            HEADERS,
+            row(1, "group-a", "首爾餐桌", "韓國烤肉"),
+            row(2, "group-a", "大阪食堂", "日本料理"),
+        ]
+    )
+    service = FakeSheetsService(worksheet)
+
+    assert [record["id"] for record in service.search_records("韓式", "group-a", "group")] == ["1"]
+    assert [record["id"] for record in service.search_records("韓式烤肉", "group-a", "group")] == ["1"]
+    assert [record["id"] for record in service.search_records("韓式燒肉", "group-a", "group")] == ["1"]
+
+
+def test_search_records_matches_note_aliases():
+    worksheet = FakeWorksheet(
+        [
+            HEADERS,
+            row(1, "group-a", "週末聚餐", note="朋友推薦的泰國菜"),
+        ]
+    )
+    service = FakeSheetsService(worksheet)
+
+    records = service.search_records("泰式", "group-a", "group")
 
     assert [record["id"] for record in records] == ["1"]
 

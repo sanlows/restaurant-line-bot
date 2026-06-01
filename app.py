@@ -222,6 +222,9 @@ def _handle_command(
     context = _context_from_source(source)
     command_type = command.get("type")
     if command_type == "list":
+        records = sheets_service.get_all_records(context["id"], context["type"])
+        return _all_records_message(records)
+    if command_type == "recent":
         records = sheets_service.get_recent_records(context["id"], context["type"])
         return _recent_records_message(records)
     if command_type == "search":
@@ -302,6 +305,15 @@ def _collection_message(results: list[dict[str, str]]) -> str:
     return "\n".join(lines)
 
 
+def _all_records_message(records: list[dict[str, str]]) -> str:
+    if not records:
+        return "目前沒有收藏餐廳。"
+    lines = ["全部收藏餐廳", ""]
+    for record in records:
+        lines.extend(_list_record_lines(record))
+    return "\n".join(lines).strip()
+
+
 def _recent_records_message(records: list[dict[str, str]]) -> str:
     if not records:
         return "目前沒有收藏餐廳。"
@@ -328,6 +340,16 @@ def _record_lines(record: dict[str, str]) -> list[str]:
         f"#{record.get('id')}｜{name}",
         f"{category_or_status}｜{area_or_status}",
         record.get("google_maps_url") or record.get("original_url", ""),
+        "",
+    ]
+
+
+def _list_record_lines(record: dict[str, str]) -> list[str]:
+    return [
+        f"original_url：{record.get('original_url', '')}",
+        f"restaurant_name：{record.get('restaurant_name') or '尚未命名'}",
+        f"category：{record.get('category', '')}",
+        f"note：{record.get('note', '')}",
         "",
     ]
 

@@ -16,7 +16,7 @@ def parse_command(text: str) -> dict[str, Any]:
         return {"type": "list"}
 
     if normalized == "查 最近":
-        return {"type": "list"}
+        return {"type": "recent"}
 
     if normalized.startswith("查 "):
         keyword = normalized[2:].strip()

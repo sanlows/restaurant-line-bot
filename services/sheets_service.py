@@ -35,6 +35,18 @@ SHEET_HEADERS = [
 
 DEFAULT_STATUS = "已收藏"
 TAIPEI = ZoneInfo("Asia/Taipei")
+SEARCH_ALIAS_GROUPS = (
+    ("韓國", "韓式"),
+    ("日本", "日式"),
+    ("台灣", "臺灣", "台式", "臺式"),
+    ("香港", "港式"),
+    ("美國", "美式"),
+    ("義大利", "義式", "義式料理"),
+    ("泰國", "泰式"),
+    ("越南", "越式"),
+    ("四川", "川味", "川菜"),
+    ("烤肉", "燒肉", "bbq", "barbecue"),
+)
 
 
 @dataclass(frozen=True)
@@ -90,14 +102,21 @@ class SheetsService:
         worksheet.append_rows(rows, value_input_option="USER_ENTERED")
         return ids
 
+    def get_all_records(
+        self,
+        context_id: str,
+        context_type: str,
+    ) -> list[dict[str, str]]:
+        records = self._context_records(context_id, context_type)
+        return list(reversed(records))
+
     def get_recent_records(
         self,
         context_id: str,
         context_type: str,
         limit: int = 5,
     ) -> list[dict[str, str]]:
-        records = self._context_records(context_id, context_type)
-        return list(reversed(records))[:limit]
+        return self.get_all_records(context_id, context_type)[:limit]
 
     def search_records(
         self,
@@ -106,8 +125,8 @@ class SheetsService:
         context_type: str,
         limit: int = 5,
     ) -> list[dict[str, str]]:
-        keyword = keyword.strip().lower()
-        if not keyword:
+        keyword_terms = _search_terms(keyword)
+        if not keyword_terms:
             return []
 
         searchable_fields = (
@@ -124,8 +143,9 @@ class SheetsService:
         )
         matches = []
         for record in reversed(self._context_records(context_id, context_type)):
-            haystack = " ".join(record.get(field, "") for field in searchable_fields).lower()
-            if keyword in haystack:
+            haystack = " ".join(record.get(field, "") for field in searchable_fields)
+            searchable_texts = {_normalize_plain_text(haystack), _normalize_search_text(haystack)}
+            if any(term in text for term in keyword_terms for text in searchable_texts):
                 matches.append(record)
             if len(matches) >= limit:
                 break
@@ -263,3 +283,37 @@ class SheetsService:
         if context_type == "user":
             return record.get("user_id") == context_id
         return False
+
+
+def _search_terms(keyword: str) -> set[str]:
+    normalized = _normalize_search_text(keyword)
+    if not normalized:
+        return set()
+
+    terms = {normalized}
+    for alias_group in SEARCH_ALIAS_GROUPS:
+        for alias in alias_group:
+            alias_normalized = _normalize_plain_text(alias)
+            if alias_normalized in normalized:
+                terms.update(
+                    normalized.replace(alias_normalized, replacement)
+                    for replacement in _normalized_aliases(alias_group)
+                )
+    return {term for term in terms if term}
+
+
+def _normalize_search_text(text: str) -> str:
+    normalized = _normalize_plain_text(text)
+    for alias_group in SEARCH_ALIAS_GROUPS:
+        canonical = _normalize_plain_text(alias_group[0])
+        for alias in alias_group[1:]:
+            normalized = normalized.replace(_normalize_plain_text(alias), canonical)
+    return normalized
+
+
+def _normalize_plain_text(text: str) -> str:
+    return "".join((text or "").lower().split())
+
+
+def _normalized_aliases(alias_group: tuple[str, ...]) -> set[str]:
+    return {_normalize_plain_text(alias) for alias in alias_group}

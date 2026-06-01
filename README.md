@@ -76,10 +76,15 @@ If an older sheet exists, the app preserves existing headers and appends any mis
 
 ## LINE Commands
 
-Recent records:
+All records:
 
 ```text
 list
+```
+
+Recent records:
+
+```text
 查 最近
 ```
 
@@ -89,7 +94,10 @@ Keyword search:
 查 板橋
 查 燒肉
 查 火鍋
+查 韓式
 ```
+
+Search supports common category aliases. For example, `查 韓式`, `查 韓式烤肉`, and `查 韓式燒肉` can match records categorized as `韓國烤肉`.
 
 Manual fixes for records that could not be parsed automatically:
 

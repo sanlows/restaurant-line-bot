@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 import app as app_module
-from app import _collection_urls_from_text, _success_message
+from app import _all_records_message, _collection_urls_from_text, _success_message
 
 
 client = TestClient(app_module.app)
@@ -24,6 +24,28 @@ def test_collection_urls_parse_after_save_prefix():
     parsed_urls = _collection_urls_from_text("存 https://example.com/a")
 
     assert [parsed.url for parsed in parsed_urls] == ["https://example.com/a"]
+
+
+def test_all_records_message_includes_requested_fields_only():
+    message = _all_records_message(
+        [
+            {
+                "original_url": "https://example.com/a",
+                "restaurant_name": "測試餐廳",
+                "category": "咖啡",
+                "note": "靠窗",
+                "google_maps_url": "https://maps.example.com/a",
+            }
+        ]
+    )
+
+    assert message == (
+        "全部收藏餐廳\n\n"
+        "original_url：https://example.com/a\n"
+        "restaurant_name：測試餐廳\n"
+        "category：咖啡\n"
+        "note：靠窗"
+    )
 
 
 def test_callback_rejects_invalid_signature(monkeypatch):
